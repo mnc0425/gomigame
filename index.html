@@ -7,7 +7,7 @@
     <style>
         * {
             box-sizing: border-box;
-            touch-action: manipulation; /* スマホでの誤タップやダブルタップズームを防止 */
+            touch-action: manipulation;
         }
         body {
             background-color: #121214;
@@ -27,7 +27,6 @@
             color: #4da6ff; 
             text-align: center;
         }
-        /* キャンバスを画面幅に合わせて自動縮小させる設定 */
         canvas { 
             background: #0a0a0f; 
             border: 2px solid #444; 
@@ -50,7 +49,6 @@
         const ctx = canvas.getContext('2d');
         const bgmAudio = document.getElementById('bgmAudio');
 
-        // 音量を25%に設定
         bgmAudio.volume = 0.25;
 
         let bgmStarted = false;
@@ -65,7 +63,6 @@
             bgmStarted = false;
         }
 
-        // --- ボス（敵）ごとの個別設定 ---
         const BOSS_SETTINGS = [
             { name: 'boss',  w: 90, h: 60, speedMult: 1.0,  isFloating: false },
             { name: 'boss2', w: 75, h: 75, speedMult: 1.5,  isFloating: false },
@@ -74,7 +71,6 @@
             { name: 'boss5', w: 90, h: 60, speedMult: 0.5,  isFloating: true  }
         ];
 
-        // 画像の読み込み
         const bossImages = [];
         BOSS_SETTINGS.forEach((setting, index) => {
             const img = new Image();
@@ -82,7 +78,6 @@
             bossImages.push(img);
         });
 
-        // --- プレイヤー設定（棒人間） ---
         let player = {
             x: 80,
             y: 205,
@@ -95,14 +90,14 @@
         const gravity = 0.6;
         const jumpPower = -12.5;
 
-        // --- ゲーム状態 ---
         let isDead = false;
+        let canRetry = true; // リトライ可能フラグ
+        let deadTime = 0;    // 死亡した時刻
         let score = 0;
         let baseGameSpeed = 6;
         let frameCount = 0;
         let obstacles = [];
 
-        // --- ジャンプ操作 ---
         function doJump() {
             if (isDead) return;
             playBGM();
@@ -112,22 +107,32 @@
             }
         }
 
+        function handleInput() {
+            if (isDead) {
+                // 1秒経過（1000ミリ秒）していない場合は無視
+                if (canRetry && (Date.now() - deadTime >= 1000)) {
+                    resetGame();
+                }
+            } else {
+                doJump();
+            }
+        }
+
         document.addEventListener('keydown', (e) => {
-            if (e.key === ' ' || e.key === 'ArrowUp') doJump();
-            if (e.key === 'r' || e.key === 'R') resetGame();
+            if (e.key === ' ' || e.key === 'ArrowUp') handleInput();
+            if (e.key === 'r' || e.key === 'R') {
+                if (isDead && Date.now() - deadTime >= 1000) resetGame();
+                else if (!isDead) resetGame();
+            }
         });
         
-        // スマホのタップ・PCのクリック対応
         window.addEventListener('touchstart', (e) => {
-            if (isDead) resetGame();
-            else doJump();
+            handleInput();
         }, { passive: true });
 
         document.addEventListener('click', (e) => {
-            // タッチデバイスでの二重反応を防止するため画面タップ操作を補助
             if (e.pointerType === 'mouse') {
-                if (isDead) resetGame();
-                else doJump();
+                handleInput();
             }
         });
 
@@ -138,10 +143,16 @@
             baseGameSpeed = 6;
             frameCount = 0;
             isDead = false;
+            canRetry = true;
             playBGM();
         }
 
-        // --- 障害物（ボス写真）の生成 ---
+        function triggerGameOver() {
+            isDead = true;
+            deadTime = Date.now(); // 死亡時刻を記録
+            stopBGM();
+        }
+
         function spawnObstacle() {
             let bossIndex;
             const rand = Math.random();
@@ -184,16 +195,23 @@
             });
         }
 
-        // --- 更新処理 ---
         function update() {
             if (isDead) return;
 
             frameCount++;
             score++;
 
+            const currentDisplayScore = Math.floor(score / 10);
+
+            // 通常のテンポアップ
             if (frameCount % 400 === 0) baseGameSpeed += 0.15;
 
-            if (frameCount % Math.max(35, Math.floor(900 / baseGameSpeed)) === 0 && Math.random() < 0.75) {
+            // スコア310到達時にスピードを急速アップ（基準速度を上昇）
+            if (currentDisplayScore >= 310 && baseGameSpeed < 10) {
+                baseGameSpeed = 10; // スピードの底上げ
+            }
+
+            if (frameCount % Math.max(25, Math.floor(800 / baseGameSpeed)) === 0 && Math.random() < 0.75) {
                 spawnObstacle();
             }
 
@@ -221,8 +239,7 @@
                     player.y + padding < obs.y + obs.h - padding &&
                     player.y + player.h - padding > obs.y + padding
                 ) {
-                    isDead = true;
-                    stopBGM();
+                    triggerGameOver();
                 }
 
                 if (obs.x + obs.w < 0) {
@@ -231,7 +248,6 @@
             }
         }
 
-        // --- 描画処理 ---
         function drawPlayer(x, y, grounded, frame) {
             ctx.strokeStyle = '#00ff66';
             ctx.fillStyle = '#00ff66';
