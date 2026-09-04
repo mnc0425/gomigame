@@ -39,7 +39,7 @@
 </head>
 <body>
 
-    <h1>神に誓うな　己に誓え</h1>
+    <h1>神に誓うな己に誓え</h1>
 
     <canvas id="gameCanvas" width="800" height="300"></canvas>
     <audio id="bgmAudio" src="bgm.mp3" loop></audio>
@@ -91,12 +91,15 @@
         const jumpPower = -12.5;
 
         let isDead = false;
-        let canRetry = true; // リトライ可能フラグ
-        let deadTime = 0;    // 死亡した時刻
+        let canRetry = true;
+        let deadTime = 0;
         let score = 0;
         let baseGameSpeed = 6;
         let frameCount = 0;
         let obstacles = [];
+
+        // デルタタイム計測用変数
+        let lastTime = 0;
 
         function doJump() {
             if (isDead) return;
@@ -109,7 +112,6 @@
 
         function handleInput() {
             if (isDead) {
-                // 1秒経過（1000ミリ秒）していない場合は無視
                 if (canRetry && (Date.now() - deadTime >= 1000)) {
                     resetGame();
                 }
@@ -144,12 +146,13 @@
             frameCount = 0;
             isDead = false;
             canRetry = true;
+            lastTime = performance.now();
             playBGM();
         }
 
         function triggerGameOver() {
             isDead = true;
-            deadTime = Date.now(); // 死亡時刻を記録
+            deadTime = Date.now();
             stopBGM();
         }
 
@@ -195,28 +198,30 @@
             });
         }
 
-        function update() {
+        // 時間補正付き更新処理
+        function update(deltaTime) {
             if (isDead) return;
 
-            frameCount++;
-            score++;
+            // 60FPS(約16.6ms)を基準とした補正係数
+            const dt = deltaTime / (1000 / 60);
+
+            frameCount += dt;
+            score += dt;
 
             const currentDisplayScore = Math.floor(score / 10);
 
-            // 通常のテンポアップ
-            if (frameCount % 400 === 0) baseGameSpeed += 0.15;
+            if (Math.floor(frameCount) % 400 === 0) baseGameSpeed += 0.005 * dt;
 
-            // スコア310到達時にスピードを急速アップ（基準速度を上昇）
             if (currentDisplayScore >= 310 && baseGameSpeed < 10) {
-                baseGameSpeed = 10; // スピードの底上げ
+                baseGameSpeed = 10;
             }
 
-            if (frameCount % Math.max(25, Math.floor(800 / baseGameSpeed)) === 0 && Math.random() < 0.75) {
+            if (Math.random() < 0.02 * dt) {
                 spawnObstacle();
             }
 
-            player.vy += gravity;
-            player.y += player.vy;
+            player.vy += gravity * dt;
+            player.y += player.vy * dt;
 
             if (player.y >= 205) {
                 player.y = 205;
@@ -225,12 +230,12 @@
             }
 
             if (player.grounded) {
-                player.animFrame += baseGameSpeed * 0.08;
+                player.animFrame += baseGameSpeed * 0.08 * dt;
             }
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obs = obstacles[i];
-                obs.x -= obs.speed;
+                obs.x -= obs.speed * dt;
 
                 const padding = 4;
                 if (
@@ -342,12 +347,16 @@
             }
         }
 
-        function loop() {
-            update();
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = Math.min(timestamp - lastTime, 100); // 描画遅延の極端な飛躍を防止
+            lastTime = timestamp;
+
+            update(deltaTime);
             draw();
             requestAnimationFrame(loop);
         }
-        loop();
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
