@@ -39,7 +39,7 @@
 </head>
 <body>
 
-    <h1>神に誓うな己に誓え.6</h1>
+    <h1>神に誓うな己に誓え.39</h1>
 
     <canvas id="gameCanvas" width="800" height="300"></canvas>
     <audio id="bgmAudio" src="bgm.mp3" loop></audio>
@@ -174,51 +174,63 @@
             stopBGM();
         }
 
-        // 透過ピクセルを考慮した精度高い当たり判定
+        // 安全対策を入れた当たり判定関数
         function checkPixelCollision(player, obs) {
-            // まずざっくり枠線で重なっているか確認
-            if (
-                player.x >= obs.x + obs.w ||
-                player.x + player.w <= obs.x ||
-                player.y >= obs.y + obs.h ||
-                player.y + player.h <= obs.y
-            ) {
-                return false;
+            // 1. 基本となるバウンディングボックス（矩形）判定
+            const padding = 2; // 少し甘めの判定領域
+            const pLeft = player.x + padding;
+            const pRight = player.x + player.w - padding;
+            const pTop = player.y + padding;
+            const pBottom = player.y + player.h - padding;
+
+            const oLeft = obs.x;
+            const oRight = obs.x + obs.w;
+            const oTop = obs.y;
+            const oBottom = obs.y + obs.h;
+
+            if (pLeft >= oRight || pRight <= oLeft || pTop >= oBottom || pBottom <= oTop) {
+                return false; // 矩形自体が重なっていない
             }
 
+            // 画像の読み込みが不十分な場合は矩形判定を優先
             const img = bossImages[obs.imgIndex];
             if (!img.complete || img.naturalWidth === 0) {
-                return true; // 画像読み込み前は枠線判定
+                return true;
             }
 
-            // 重なっているエリアの計算
-            const overlapX = Math.max(player.x, obs.x);
-            const overlapY = Math.max(player.y, obs.y);
-            const overlapW = Math.min(player.x + player.w, obs.x + obs.w) - overlapX;
-            const overlapH = Math.min(player.y + player.h, obs.y + obs.h) - overlapY;
+            try {
+                // 2. 透過領域のチェック
+                const overlapX = Math.max(pLeft, oLeft);
+                const overlapY = Math.max(pTop, oTop);
+                const overlapW = Math.min(pRight, oRight) - overlapX;
+                const overlapH = Math.min(pBottom, oBottom) - overlapY;
 
-            if (overlapW <= 0 || overlapH <= 0) return false;
+                if (overlapW <= 0 || overlapH <= 0) return false;
 
-            // 隠しキャンバスのサイズを調整して画像を描画
-            hitCanvas.width = obs.w;
-            hitCanvas.height = obs.h;
-            hitCtx.clearRect(0, 0, obs.w, obs.h);
-            hitCtx.drawImage(img, 0, 0, obs.w, obs.h);
+                hitCanvas.width = obs.w;
+                hitCanvas.height = obs.h;
+                hitCtx.clearRect(0, 0, obs.w, obs.h);
+                hitCtx.drawImage(img, 0, 0, obs.w, obs.h);
 
-            // 重なっている部分の画像ピクセルデータ（RGBA）を取得
-            const imgOverlapX = overlapX - obs.x;
-            const imgOverlapY = overlapY - obs.y;
-            const imageData = hitCtx.getImageData(imgOverlapX, imgOverlapY, overlapW, overlapH);
-            const pixels = imageData.data;
+                const imgOverlapX = Math.floor(overlapX - oLeft);
+                const imgOverlapY = Math.floor(overlapY - oTop);
+                const checkW = Math.max(1, Math.floor(overlapW));
+                const checkH = Math.max(1, Math.floor(overlapH));
 
-            // アルファ値（透明度）チェック（4ピクセルごとにA値が入っている）
-            for (let i = 3; i < pixels.length; i += 4) {
-                if (pixels[i] > 30) { // 透明度が一定以上の不透明ピクセルに触れたら当たり
-                    return true;
+                const imageData = hitCtx.getImageData(imgOverlapX, imgOverlapY, checkW, checkH);
+                const pixels = imageData.data;
+
+                // アルファ値（透明度）が一定以上の部分に接触しているか確認
+                for (let i = 3; i < pixels.length; i += 4) {
+                    if (pixels[i] > 50) { 
+                        return true; // 不透明領域に当たったらヒット
+                    }
                 }
+                return false; // 透明部分のみ重なっている場合
+            } catch (err) {
+                // セキュリティ制限や読み込みエラー時はゲームを停止させず矩形判定にする
+                return true;
             }
-
-            return false;
         }
 
         function spawnObstacle() {
@@ -309,7 +321,6 @@
                 let obs = obstacles[i];
                 obs.x -= obs.speed * dt;
 
-                // 透過考慮の当たり判定呼び出し
                 if (checkPixelCollision(player, obs)) {
                     triggerGameOver();
                 }
