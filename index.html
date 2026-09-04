@@ -2,21 +2,40 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GOMIGAME</title>
     <style>
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation; /* スマホでの誤タップやダブルタップズームを防止 */
+        }
         body {
             background-color: #121214;
             color: #f0f0f0;
             font-family: sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
-        h1 { margin: 0 0 15px 0; font-size: 24px; color: #4da6ff; }
-        canvas { background: #0a0a0f; border: 2px solid #444; border-radius: 8px; }
+        h1 { 
+            margin: 0 0 10px 0; 
+            font-size: clamp(16px, 5vw, 24px); 
+            color: #4da6ff; 
+            text-align: center;
+        }
+        /* キャンバスを画面幅に合わせて自動縮小させる設定 */
+        canvas { 
+            background: #0a0a0f; 
+            border: 2px solid #444; 
+            border-radius: 8px; 
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -97,9 +116,19 @@
             if (e.key === ' ' || e.key === 'ArrowUp') doJump();
             if (e.key === 'r' || e.key === 'R') resetGame();
         });
-        document.addEventListener('click', () => {
+        
+        // スマホのタップ・PCのクリック対応
+        window.addEventListener('touchstart', (e) => {
             if (isDead) resetGame();
             else doJump();
+        }, { passive: true });
+
+        document.addEventListener('click', (e) => {
+            // タッチデバイスでの二重反応を防止するため画面タップ操作を補助
+            if (e.pointerType === 'mouse') {
+                if (isDead) resetGame();
+                else doJump();
+            }
         });
 
         function resetGame() {
@@ -117,26 +146,24 @@
             let bossIndex;
             const rand = Math.random();
 
-            // 指定の出現確率（確率の累積値で判定）
             if (rand < 0.44) {
-                bossIndex = 0; // boss (44%)
+                bossIndex = 0;
             } else if (rand < 0.84) {
-                bossIndex = 1; // boss2 (40%)
+                bossIndex = 1;
             } else if (rand < 0.94) {
-                bossIndex = 2; // boss3 (10%)
+                bossIndex = 2;
             } else if (rand < 0.99) {
-                bossIndex = 3; // boss4 (5%)
+                bossIndex = 3;
             } else {
-                bossIndex = 4; // boss5 (1%)
+                bossIndex = 4;
             }
 
             const setting = BOSS_SETTINGS[bossIndex];
 
-            // 安全距離のチェック (boss5の場合はより広くスペースを確保して詰みを防止)
             const minDistance = setting.isFloating ? 380 : 240;
             const lastObs = obstacles[obstacles.length - 1];
             if (lastObs && (canvas.width - lastObs.x < minDistance)) {
-                return; // 前の敵と近すぎる場合は生成をスキップ
+                return;
             }
 
             let yPos;
@@ -164,15 +191,12 @@
             frameCount++;
             score++;
 
-            // テンポアップ
             if (frameCount % 400 === 0) baseGameSpeed += 0.15;
 
-            // 障害物出現ロジック
             if (frameCount % Math.max(35, Math.floor(900 / baseGameSpeed)) === 0 && Math.random() < 0.75) {
                 spawnObstacle();
             }
 
-            // プレイヤー物理計算
             player.vy += gravity;
             player.y += player.vy;
 
@@ -182,12 +206,10 @@
                 player.grounded = true;
             }
 
-            // アニメーションフレーム更新
             if (player.grounded) {
                 player.animFrame += baseGameSpeed * 0.08;
             }
 
-            // 障害物移動 ＆ 当たり判定
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obs = obstacles[i];
                 obs.x -= obs.speed;
@@ -219,12 +241,10 @@
             const headX = x + 10;
             const headY = y + headRadius;
 
-            // 頭
             ctx.beginPath();
             ctx.arc(headX, headY, headRadius, 0, Math.PI * 2);
             ctx.stroke();
 
-            // 胴体
             const bodyStartY = headY + headRadius;
             const bodyEndY = y + 25;
             ctx.beginPath();
@@ -232,7 +252,6 @@
             ctx.lineTo(headX, bodyEndY);
             ctx.stroke();
 
-            // 腕と脚
             if (grounded) {
                 const legAngle = Math.sin(frame) * 12;
                 const armAngle = Math.cos(frame) * 10;
@@ -270,16 +289,13 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 地面
             ctx.fillStyle = '#4a4a5a';
             ctx.fillRect(0, 245, canvas.width, 55);
             ctx.fillStyle = '#00ff66';
             ctx.fillRect(0, 245, canvas.width, 3);
 
-            // プレイヤー
             drawPlayer(player.x, player.y, player.grounded, player.animFrame);
 
-            // 障害物
             obstacles.forEach(obs => {
                 const img = bossImages[obs.imgIndex];
                 if (img.complete && img.naturalWidth !== 0) {
@@ -294,13 +310,11 @@
                 }
             });
 
-            // スコア表示
             ctx.fillStyle = '#ffffff';
             ctx.font = '20px monospace';
             ctx.textAlign = 'right';
             ctx.fillText('SCORE: ' + Math.floor(score / 10), canvas.width - 20, 35);
 
-            // ゲームオーバー時表示
             if (isDead) {
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ff3344';
