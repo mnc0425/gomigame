@@ -233,3 +233,149 @@
             if (currentDisplayScore >= 310 && baseGameSpeed < 10) {
                 baseGameSpeed = 10;
             }
+
+            if (Math.random() < 0.02 * dt) {
+                spawnObstacle();
+            }
+
+            player.vy += gravity * dt;
+            player.y += player.vy * dt;
+
+            if (player.y >= 205) {
+                player.y = 205;
+                player.vy = 0;
+                player.grounded = true;
+                player.jumpCount = 0;
+            }
+
+            if (player.grounded) {
+                player.animFrame += baseGameSpeed * 0.08 * dt;
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= obs.speed * dt;
+
+                const padding = 4;
+                if (
+                    player.x + padding < obs.x + obs.w - padding &&
+                    player.x + player.w - padding > obs.x + padding &&
+                    player.y + padding < obs.y + obs.h - padding &&
+                    player.y + player.h - padding > obs.y + padding
+                ) {
+                    triggerGameOver();
+                }
+
+                if (obs.x + obs.w < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawPlayer(x, y, grounded, frame) {
+            ctx.strokeStyle = '#00ff66';
+            ctx.fillStyle = '#00ff66';
+            ctx.lineWidth = 2.5;
+
+            const headRadius = 5;
+            const headX = x + 10;
+            const headY = y + headRadius;
+
+            ctx.beginPath();
+            ctx.arc(headX, headY, headRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            const bodyStartY = headY + headRadius;
+            const bodyEndY = y + 25;
+            ctx.beginPath();
+            ctx.moveTo(headX, bodyStartY);
+            ctx.lineTo(headX, bodyEndY);
+            ctx.stroke();
+
+            if (grounded) {
+                const legAngle = Math.sin(frame) * 12;
+                const armAngle = Math.cos(frame) * 10;
+
+                ctx.beginPath();
+                ctx.moveTo(headX, bodyEndY);
+                ctx.lineTo(headX - legAngle, y + 40);
+                ctx.moveTo(headX, bodyEndY);
+                ctx.lineTo(headX + legAngle, y + 40);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(headX, bodyStartY + 4);
+                ctx.lineTo(headX - armAngle, bodyStartY + 14);
+                ctx.moveTo(headX, bodyStartY + 4);
+                ctx.lineTo(headX + armAngle, bodyStartY + 14);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(headX, bodyEndY);
+                ctx.lineTo(headX - 8, y + 35);
+                ctx.moveTo(headX, bodyEndY);
+                ctx.lineTo(headX + 8, y + 33);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(headX, bodyStartY + 4);
+                ctx.lineTo(headX - 10, bodyStartY - 2);
+                ctx.moveTo(headX, bodyStartY + 4);
+                ctx.lineTo(headX + 10, bodyStartY - 2);
+                ctx.stroke();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#4a4a5a';
+            ctx.fillRect(0, 245, canvas.width, 55);
+            ctx.fillStyle = '#00ff66';
+            ctx.fillRect(0, 245, canvas.width, 3);
+
+            drawPlayer(player.x, player.y, player.grounded, player.animFrame);
+
+            obstacles.forEach(obs => {
+                const img = bossImages[obs.imgIndex];
+                if (img.complete && img.naturalWidth !== 0) {
+                    ctx.drawImage(img, obs.x, obs.y, obs.w, obs.h);
+                } else {
+                    ctx.fillStyle = obs.isFloating ? '#ff00aa' : '#aa00ff';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(BOSS_SETTINGS[obs.imgIndex].name, obs.x + obs.w/2, obs.y + obs.h/2);
+                }
+            });
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '20px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText('SCORE: ' + Math.floor(score / 10), canvas.width - 20, 35);
+
+            if (isDead) {
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ff3344';
+                ctx.font = 'bold 42px sans-serif';
+                ctx.fillText('ざんねん', canvas.width / 2, 130);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '16px sans-serif';
+                ctx.fillText('さようなら', canvas.width / 2, 170);
+            }
+        }
+
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = Math.min(timestamp - lastTime, 100);
+            lastTime = timestamp;
+
+            update(deltaTime);
+            draw();
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
