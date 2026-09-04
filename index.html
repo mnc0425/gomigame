@@ -78,7 +78,6 @@
             bossImages.push(img);
         });
 
-        // プレイヤー設定（ジャンプカウント追加）
         let player = {
             x: 80,
             y: 205,
@@ -86,8 +85,8 @@
             h: 40,
             vy: 0,
             grounded: true,
-            jumpCount: 0, // ジャンプ回数を記録
-            maxJumps: 2,  // 2段ジャンプまで許可
+            jumpCount: 0,
+            maxJumps: 2,
             animFrame: 0
         };
         const gravity = 0.6;
@@ -103,12 +102,10 @@
 
         let lastTime = 0;
 
-        // ジャンプ処理（2段ジャンプ対応）
         function doJump() {
             if (isDead) return;
             playBGM();
 
-            // ジャンプ回数が最大回数（2回）未満ならジャンプ可能
             if (player.jumpCount < player.maxJumps) {
                 player.vy = jumpPower;
                 player.grounded = false;
@@ -165,20 +162,33 @@
             stopBGM();
         }
 
+        // スコアに応じた障害物（ボス）の生成
         function spawnObstacle() {
             let bossIndex;
             const rand = Math.random();
+            const currentDisplayScore = Math.floor(score / 10);
 
-            if (rand < 0.44) {
-                bossIndex = 0;
-            } else if (rand < 0.84) {
-                bossIndex = 1;
-            } else if (rand < 0.94) {
-                bossIndex = 2;
-            } else if (rand < 0.99) {
-                bossIndex = 3;
+            if (currentDisplayScore <= 140) {
+                // 〜140: boss, boss2 のみ
+                bossIndex = rand < 0.50 ? 0 : 1;
+            } else if (currentDisplayScore <= 219) {
+                // 141〜219: boss3 追加
+                if (rand < 0.45) bossIndex = 0;
+                else if (rand < 0.85) bossIndex = 1;
+                else bossIndex = 2;
+            } else if (currentDisplayScore <= 309) {
+                // 220〜309: boss4 追加
+                if (rand < 0.40) bossIndex = 0;
+                else if (rand < 0.75) bossIndex = 1;
+                else if (rand < 0.90) bossIndex = 2;
+                else bossIndex = 3;
             } else {
-                bossIndex = 4;
+                // 310〜: boss5 追加（全種類出現）
+                if (rand < 0.35) bossIndex = 0;
+                else if (rand < 0.65) bossIndex = 1;
+                else if (rand < 0.80) bossIndex = 2;
+                else if (rand < 0.95) bossIndex = 3;
+                else bossIndex = 4;
             }
 
             const setting = BOSS_SETTINGS[bossIndex];
@@ -219,153 +229,7 @@
 
             if (Math.floor(frameCount) % 400 === 0) baseGameSpeed += 0.005 * dt;
 
+            // スコア310到達時のスピード上昇設定
             if (currentDisplayScore >= 310 && baseGameSpeed < 10) {
                 baseGameSpeed = 10;
             }
-
-            if (Math.random() < 0.02 * dt) {
-                spawnObstacle();
-            }
-
-            player.vy += gravity * dt;
-            player.y += player.vy * dt;
-
-            // 着地判定
-            if (player.y >= 205) {
-                player.y = 205;
-                player.vy = 0;
-                player.grounded = true;
-                player.jumpCount = 0; // 地面についたらジャンプ回数をリセット
-            }
-
-            if (player.grounded) {
-                player.animFrame += baseGameSpeed * 0.08 * dt;
-            }
-
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let obs = obstacles[i];
-                obs.x -= obs.speed * dt;
-
-                const padding = 4;
-                if (
-                    player.x + padding < obs.x + obs.w - padding &&
-                    player.x + player.w - padding > obs.x + padding &&
-                    player.y + padding < obs.y + obs.h - padding &&
-                    player.y + player.h - padding > obs.y + padding
-                ) {
-                    triggerGameOver();
-                }
-
-                if (obs.x + obs.w < 0) {
-                    obstacles.splice(i, 1);
-                }
-            }
-        }
-
-        function drawPlayer(x, y, grounded, frame) {
-            ctx.strokeStyle = '#00ff66';
-            ctx.fillStyle = '#00ff66';
-            ctx.lineWidth = 2.5;
-
-            const headRadius = 5;
-            const headX = x + 10;
-            const headY = y + headRadius;
-
-            ctx.beginPath();
-            ctx.arc(headX, headY, headRadius, 0, Math.PI * 2);
-            ctx.stroke();
-
-            const bodyStartY = headY + headRadius;
-            const bodyEndY = y + 25;
-            ctx.beginPath();
-            ctx.moveTo(headX, bodyStartY);
-            ctx.lineTo(headX, bodyEndY);
-            ctx.stroke();
-
-            if (grounded) {
-                const legAngle = Math.sin(frame) * 12;
-                const armAngle = Math.cos(frame) * 10;
-
-                ctx.beginPath();
-                ctx.moveTo(headX, bodyEndY);
-                ctx.lineTo(headX - legAngle, y + 40);
-                ctx.moveTo(headX, bodyEndY);
-                ctx.lineTo(headX + legAngle, y + 40);
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.moveTo(headX, bodyStartY + 4);
-                ctx.lineTo(headX - armAngle, bodyStartY + 14);
-                ctx.moveTo(headX, bodyStartY + 4);
-                ctx.lineTo(headX + armAngle, bodyStartY + 14);
-                ctx.stroke();
-            } else {
-                ctx.beginPath();
-                ctx.moveTo(headX, bodyEndY);
-                ctx.lineTo(headX - 8, y + 35);
-                ctx.moveTo(headX, bodyEndY);
-                ctx.lineTo(headX + 8, y + 33);
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.moveTo(headX, bodyStartY + 4);
-                ctx.lineTo(headX - 10, bodyStartY - 2);
-                ctx.moveTo(headX, bodyStartY + 4);
-                ctx.lineTo(headX + 10, bodyStartY - 2);
-                ctx.stroke();
-            }
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = '#4a4a5a';
-            ctx.fillRect(0, 245, canvas.width, 55);
-            ctx.fillStyle = '#00ff66';
-            ctx.fillRect(0, 245, canvas.width, 3);
-
-            drawPlayer(player.x, player.y, player.grounded, player.animFrame);
-
-            obstacles.forEach(obs => {
-                const img = bossImages[obs.imgIndex];
-                if (img.complete && img.naturalWidth !== 0) {
-                    ctx.drawImage(img, obs.x, obs.y, obs.w, obs.h);
-                } else {
-                    ctx.fillStyle = obs.isFloating ? '#ff00aa' : '#aa00ff';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '10px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(BOSS_SETTINGS[obs.imgIndex].name, obs.x + obs.w/2, obs.y + obs.h/2);
-                }
-            });
-
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '20px monospace';
-            ctx.textAlign = 'right';
-            ctx.fillText('SCORE: ' + Math.floor(score / 10), canvas.width - 20, 35);
-
-            if (isDead) {
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#ff3344';
-                ctx.font = 'bold 42px sans-serif';
-                ctx.fillText('ざんねん', canvas.width / 2, 130);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '16px sans-serif';
-                ctx.fillText('さようなら', canvas.width / 2, 170);
-            }
-        }
-
-        function loop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const deltaTime = Math.min(timestamp - lastTime, 100);
-            lastTime = timestamp;
-
-            update(deltaTime);
-            draw();
-            requestAnimationFrame(loop);
-        }
-        requestAnimationFrame(loop);
-    </script>
-</body>
-</html>
