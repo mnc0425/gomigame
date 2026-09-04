@@ -39,7 +39,7 @@
 </head>
 <body>
 
-    <h1>神に誓うな己に誓え</h1>
+    <h1>神に誓うな己に誓え.6</h1>
 
     <canvas id="gameCanvas" width="800" height="300"></canvas>
     <audio id="bgmAudio" src="bgm.mp3" loop></audio>
@@ -48,6 +48,10 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const bgmAudio = document.getElementById('bgmAudio');
+
+        // 透過判定用の隠しキャンバス
+        const hitCanvas = document.createElement('canvas');
+        const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
 
         bgmAudio.volume = 0.25;
 
@@ -63,7 +67,6 @@
             bgmStarted = false;
         }
 
-        // boss4, boss5 のサイズ変更
         const BOSS_SETTINGS = [
             { name: 'boss',  w: 90,  h: 60,  speedMult: 1.0,  isFloating: false },
             { name: 'boss2', w: 75,  h: 75,  speedMult: 1.5,  isFloating: false },
@@ -102,12 +105,11 @@
         let obstacles = [];
 
         let lastTime = 0;
-        let lastJumpTime = 0; // ダブルタップ防止用のタイマー
+        let lastJumpTime = 0;
 
         function doJump() {
             if (isDead) return;
 
-            // 連打・誤操作防止（100ms以内の連続ジャンプ入力を無視）
             const now = Date.now();
             if (now - lastJumpTime < 100) return;
             lastJumpTime = now;
@@ -139,15 +141,13 @@
             }
         });
         
-        // タッチイベントの重複発火を防止 (preventDefault)
         window.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) return; // 複数指タップ無視
+            if (e.touches.length > 1) return;
             handleInput();
             if (e.cancelable) e.preventDefault();
         }, { passive: false });
 
         document.addEventListener('click', (e) => {
-            // マウスクリックのみ処理（タッチ環境での重複対策）
             if (e.pointerType === 'mouse') {
                 handleInput();
             }
@@ -172,6 +172,53 @@
             isDead = true;
             deadTime = Date.now();
             stopBGM();
+        }
+
+        // 透過ピクセルを考慮した精度高い当たり判定
+        function checkPixelCollision(player, obs) {
+            // まずざっくり枠線で重なっているか確認
+            if (
+                player.x >= obs.x + obs.w ||
+                player.x + player.w <= obs.x ||
+                player.y >= obs.y + obs.h ||
+                player.y + player.h <= obs.y
+            ) {
+                return false;
+            }
+
+            const img = bossImages[obs.imgIndex];
+            if (!img.complete || img.naturalWidth === 0) {
+                return true; // 画像読み込み前は枠線判定
+            }
+
+            // 重なっているエリアの計算
+            const overlapX = Math.max(player.x, obs.x);
+            const overlapY = Math.max(player.y, obs.y);
+            const overlapW = Math.min(player.x + player.w, obs.x + obs.w) - overlapX;
+            const overlapH = Math.min(player.y + player.h, obs.y + obs.h) - overlapY;
+
+            if (overlapW <= 0 || overlapH <= 0) return false;
+
+            // 隠しキャンバスのサイズを調整して画像を描画
+            hitCanvas.width = obs.w;
+            hitCanvas.height = obs.h;
+            hitCtx.clearRect(0, 0, obs.w, obs.h);
+            hitCtx.drawImage(img, 0, 0, obs.w, obs.h);
+
+            // 重なっている部分の画像ピクセルデータ（RGBA）を取得
+            const imgOverlapX = overlapX - obs.x;
+            const imgOverlapY = overlapY - obs.y;
+            const imageData = hitCtx.getImageData(imgOverlapX, imgOverlapY, overlapW, overlapH);
+            const pixels = imageData.data;
+
+            // アルファ値（透明度）チェック（4ピクセルごとにA値が入っている）
+            for (let i = 3; i < pixels.length; i += 4) {
+                if (pixels[i] > 30) { // 透明度が一定以上の不透明ピクセルに触れたら当たり
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         function spawnObstacle() {
@@ -262,13 +309,8 @@
                 let obs = obstacles[i];
                 obs.x -= obs.speed * dt;
 
-                const padding = 4;
-                if (
-                    player.x + padding < obs.x + obs.w - padding &&
-                    player.x + player.w - padding > obs.x + padding &&
-                    player.y + padding < obs.y + obs.h - padding &&
-                    player.y + player.h - padding > obs.y + padding
-                ) {
+                // 透過考慮の当たり判定呼び出し
+                if (checkPixelCollision(player, obs)) {
                     triggerGameOver();
                 }
 
