@@ -1,3 +1,19 @@
+ご指定の確率構成に合わせて障害物（ボス）の生成確率ロジックを更新しました。
+
+### 新しい出現確率設定
+
+* **〜 140**: `boss` (60%) / `boss2` (40%)
+* **141 〜 219**: `boss` (40%) / `boss2` (30%) / `boss3` (30%)
+* **220 〜 309**: `boss` (30%) / `boss2` (30%) / `boss3` (20%) / `boss4` (20%)
+* **310 〜**: `boss` (30%) / `boss2` (20%) / `boss3` (20%) / `boss4` (10%) / `boss5` (20%)
+
+---
+
+### 変更後の `index.html` コード
+
+`index.html` を以下のコードに差し替えて、GitHubへアップロード（Commit）してください。
+
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -162,32 +178,32 @@
             stopBGM();
         }
 
-        // スコアに応じた障害物（ボス）の生成
+        // スコアに応じた障害物（ボス）の生成確率ロジック
         function spawnObstacle() {
             let bossIndex;
             const rand = Math.random();
             const currentDisplayScore = Math.floor(score / 10);
 
             if (currentDisplayScore <= 140) {
-                // 〜140: boss, boss2 のみ
-                bossIndex = rand < 0.50 ? 0 : 1;
+                // 〜 140: boss (60%) / boss2 (40%)
+                bossIndex = rand < 0.60 ? 0 : 1;
             } else if (currentDisplayScore <= 219) {
-                // 141〜219: boss3 追加
-                if (rand < 0.45) bossIndex = 0;
-                else if (rand < 0.85) bossIndex = 1;
+                // 141 〜 219: boss (40%) / boss2 (30%) / boss3 (30%)
+                if (rand < 0.40) bossIndex = 0;
+                else if (rand < 0.70) bossIndex = 1;
                 else bossIndex = 2;
             } else if (currentDisplayScore <= 309) {
-                // 220〜309: boss4 追加
-                if (rand < 0.40) bossIndex = 0;
-                else if (rand < 0.75) bossIndex = 1;
-                else if (rand < 0.90) bossIndex = 2;
+                // 220 〜 309: boss (30%) / boss2 (30%) / boss3 (20%) / boss4 (20%)
+                if (rand < 0.30) bossIndex = 0;
+                else if (rand < 0.60) bossIndex = 1;
+                else if (rand < 0.80) bossIndex = 2;
                 else bossIndex = 3;
             } else {
-                // 310〜: boss5 追加（全種類出現）
-                if (rand < 0.35) bossIndex = 0;
-                else if (rand < 0.65) bossIndex = 1;
-                else if (rand < 0.80) bossIndex = 2;
-                else if (rand < 0.95) bossIndex = 3;
+                // 310 〜: boss (30%) / boss2 (20%) / boss3 (20%) / boss4 (10%) / boss5 (20%)
+                if (rand < 0.30) bossIndex = 0;
+                else if (rand < 0.50) bossIndex = 1;
+                else if (rand < 0.70) bossIndex = 2;
+                else if (rand < 0.80) bossIndex = 3;
                 else bossIndex = 4;
             }
 
@@ -379,3 +395,5 @@
     </script>
 </body>
 </html>
+
+```
