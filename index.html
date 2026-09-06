@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME１</title>
+    <title>GOMIGAME2</title>
     <style>
         * {
             box-sizing: border-box;
@@ -35,11 +35,15 @@
 
     <canvas id="gameCanvas" width="800" height="300"></canvas>
     <audio id="bgmAudio" src="bgm.mp3" loop></audio>
+    <audio id="jumpAudio1" src="jump.wav" preload="auto"></audio>
+    <audio id="jumpAudio2" src="jump2.wav" preload="auto"></audio>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const bgmAudio = document.getElementById('bgmAudio');
+        const jumpAudio1 = document.getElementById('jumpAudio1');
+        const jumpAudio2 = document.getElementById('jumpAudio2');
 
         const hitCanvas = document.createElement('canvas');
         const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
@@ -58,12 +62,18 @@
             bgmStarted = false;
         }
 
+        // ジャンプ効果音再生用関数（連打対応）
+        function playJumpSE(audioElement) {
+            audioElement.currentTime = 0;
+            audioElement.play().catch(() => {});
+        }
+
         const BOSS_SETTINGS = [
             { name: 'boss',  w: 90,  h: 60,  speedMult: 1.0,  isFloating: false }, // 0
             { name: 'boss2', w: 75,  h: 75,  speedMult: 1.5,  isFloating: false }, // 1
             { name: 'boss3', w: 60,  h: 90,  speedMult: 0.7,  isFloating: false }, // 2
             { name: 'boss4', w: 120, h: 150, speedMult: 1.25, isFloating: false }, // 3
-            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: true  }, // 4
+            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: false }, // 4 (※isFloating: false に修正)
             { name: 'boss6', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false }  // 5
         ];
 
@@ -89,7 +99,7 @@
             // 80: boss4 (大型)
             { score: 80, bossIndex: 3, count: 1 },
 
-            // 100: boss5 (飛行)
+            // 100: boss5
             { score: 100, bossIndex: 4, count: 1 },
 
             // 130: boss2 と boss (※少し間隔を空けて2連発)
@@ -150,6 +160,12 @@
             playBGM();
 
             if (player.jumpCount < player.maxJumps) {
+                if (player.jumpCount === 0) {
+                    playJumpSE(jumpAudio1); // 1段目ジャンプ音
+                } else if (player.jumpCount === 1) {
+                    playJumpSE(jumpAudio2); // 2段目ジャンプ音
+                }
+
                 player.vy = jumpPower;
                 player.grounded = false;
                 player.jumpCount++;
@@ -237,9 +253,6 @@
             stopBGM();
         }
 
-        // -------------------------------------------------------------
-        // ピクセル単位の当たり判定（修正版）
-        // -------------------------------------------------------------
         function checkPixelCollision(player, obs) {
             const padding = 2;
             const pLeft = player.x + padding;
@@ -252,14 +265,12 @@
             const oTop = obs.y;
             const oBottom = obs.y + obs.h;
 
-            // 矩形が重なっていなければヒットしない
             if (pLeft >= oRight || pRight <= oLeft || pTop >= oBottom || pBottom <= oTop) {
                 return false;
             }
 
             const img = bossImages[obs.imgIndex];
 
-            // 画像の読み込みが完了していない場合のみ矩形判定にフォールバック
             if (!img.complete || img.naturalWidth === 0) {
                 return true;
             }
@@ -285,7 +296,6 @@
                 const imageData = hitCtx.getImageData(imgOverlapX, imgOverlapY, checkW, checkH);
                 const pixels = imageData.data;
 
-                // アルファ値が 180 以上の「濃い不透明ピクセル」のみ判定
                 for (let i = 3; i < pixels.length; i += 4) {
                     if (pixels[i] > 180) { 
                         return true;
@@ -293,7 +303,6 @@
                 }
                 return false;
             } catch (err) {
-                // CORSエラー等の場合は矩形判定にフォールバック
                 return true;
             }
         }
