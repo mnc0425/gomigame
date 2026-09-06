@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME2</title>
+    <title>GOMIGAME3</title>
     <style>
         * {
             box-sizing: border-box;
@@ -49,6 +49,9 @@
         const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
 
         bgmAudio.volume = 0.25;
+        // ジャンプ音量を50%に設定
+        jumpAudio1.volume = 0.5;
+        jumpAudio2.volume = 0.5;
 
         let bgmStarted = false;
         function playBGM() {
@@ -62,7 +65,6 @@
             bgmStarted = false;
         }
 
-        // ジャンプ効果音再生用関数（連打対応）
         function playJumpSE(audioElement) {
             audioElement.currentTime = 0;
             audioElement.play().catch(() => {});
@@ -73,8 +75,9 @@
             { name: 'boss2', w: 75,  h: 75,  speedMult: 1.5,  isFloating: false }, // 1
             { name: 'boss3', w: 60,  h: 90,  speedMult: 0.7,  isFloating: false }, // 2
             { name: 'boss4', w: 120, h: 150, speedMult: 1.25, isFloating: false }, // 3
-            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: false }, // 4 (※isFloating: false に修正)
-            { name: 'boss6', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false }  // 5
+            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: false }, // 4 (飛行なし・地上)
+            { name: 'boss6', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false }, // 5
+            { name: 'boss7', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false, isRotating: true } // 6 (回転)
         ];
 
         // -------------------------------------------------------------
@@ -106,13 +109,22 @@
             { score: 130, bossIndex: 1, count: 1 },
             { score: 130, bossIndex: 0, count: 1, delay: 280 },
 
-            // 150: boss3 -> boss4 -> boss5
+            // 150: boss3 (縦長) -> boss4 (大型) -> boss5
             { score: 150, bossIndex: 2, count: 1, delay: 0 },
             { score: 150, bossIndex: 3, count: 1, delay: 120 },
             { score: 150, bossIndex: 4, count: 1, delay: 240 },
 
             // 220: boss6 (真ん中で0.5秒停止後、高速移動)
-            { score: 220, bossIndex: 5, count: 1, specialBehavior: 'stopAndDash' }
+            { score: 220, bossIndex: 5, count: 1, specialBehavior: 'stopAndDash' },
+
+            // 233: boss7 (回転しながら 下・上・下・下・上・下・上 の順に出現)
+            { score: 233, bossIndex: 6, count: 1, delay: 0,   position: 'bottom' },
+            { score: 233, bossIndex: 6, count: 1, delay: 160, position: 'top' },
+            { score: 233, bossIndex: 6, count: 1, delay: 320, position: 'bottom' },
+            { score: 233, bossIndex: 6, count: 1, delay: 480, position: 'bottom' },
+            { score: 233, bossIndex: 6, count: 1, delay: 640, position: 'top' },
+            { score: 233, bossIndex: 6, count: 1, delay: 800, position: 'bottom' },
+            { score: 233, bossIndex: 6, count: 1, delay: 960, position: 'top' }
         ];
 
         const bossImages = [];
@@ -161,9 +173,9 @@
 
             if (player.jumpCount < player.maxJumps) {
                 if (player.jumpCount === 0) {
-                    playJumpSE(jumpAudio1); // 1段目ジャンプ音
+                    playJumpSE(jumpAudio1);
                 } else if (player.jumpCount === 1) {
-                    playJumpSE(jumpAudio2); // 2段目ジャンプ音
+                    playJumpSE(jumpAudio2);
                 }
 
                 player.vy = jumpPower;
@@ -233,6 +245,7 @@
                         delayOffset: (item.count > 1) ? (i * interval) : (item.delay || 0),
                         speedMult: item.speedMult,
                         specialBehavior: item.specialBehavior,
+                        position: item.position,
                         triggered: false
                     });
                 }
@@ -286,7 +299,16 @@
                 hitCanvas.width = obs.w;
                 hitCanvas.height = obs.h;
                 hitCtx.clearRect(0, 0, obs.w, obs.h);
-                hitCtx.drawImage(img, 0, 0, obs.w, obs.h);
+
+                if (obs.isRotating) {
+                    hitCtx.save();
+                    hitCtx.translate(obs.w / 2, obs.h / 2);
+                    hitCtx.rotate(obs.rotation);
+                    hitCtx.drawImage(img, -obs.w / 2, -obs.h / 2, obs.w, obs.h);
+                    hitCtx.restore();
+                } else {
+                    hitCtx.drawImage(img, 0, 0, obs.w, obs.h);
+                }
 
                 const imgOverlapX = Math.floor(overlapX - oLeft);
                 const imgOverlapY = Math.floor(overlapY - oTop);
@@ -315,15 +337,24 @@
                     }
                     if (frameCount - item.startFrame >= (item.delayOffset / (baseGameSpeed / 6))) {
                         item.triggered = true;
-                        spawnSpecificObstacle(item.bossIndex, item.speedMult, item.specialBehavior);
+                        spawnSpecificObstacle(item.bossIndex, item.speedMult, item.specialBehavior, item.position);
                     }
                 }
             });
         }
 
-        function spawnSpecificObstacle(bossIndex, customSpeedMult, specialBehavior) {
+        function spawnSpecificObstacle(bossIndex, customSpeedMult, specialBehavior, position) {
             const setting = BOSS_SETTINGS[bossIndex];
-            let yPos = setting.isFloating ? 115 : (245 - setting.h);
+            let yPos;
+
+            if (position === 'top') {
+                yPos = 110;
+            } else if (position === 'bottom') {
+                yPos = 245 - setting.h;
+            } else {
+                yPos = setting.isFloating ? 115 : (245 - setting.h);
+            }
+
             const speedMult = customSpeedMult !== undefined ? customSpeedMult : setting.speedMult;
 
             obstacles.push({
@@ -334,6 +365,8 @@
                 speed: baseGameSpeed * speedMult,
                 imgIndex: bossIndex,
                 isFloating: setting.isFloating,
+                isRotating: !!setting.isRotating,
+                rotation: 0,
                 specialBehavior: specialBehavior,
                 state: 'normal',
                 stopTimer: 0
@@ -368,6 +401,10 @@
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obs = obstacles[i];
+
+                if (obs.isRotating) {
+                    obs.rotation += 0.08 * dt;
+                }
 
                 if (obs.specialBehavior === 'stopAndDash') {
                     if (obs.state === 'normal' && obs.x <= 350) {
@@ -467,16 +504,30 @@
 
             obstacles.forEach(obs => {
                 const img = bossImages[obs.imgIndex];
-                if (img.complete && img.naturalWidth !== 0) {
-                    ctx.drawImage(img, obs.x, obs.y, obs.w, obs.h);
+                ctx.save();
+
+                if (obs.isRotating) {
+                    ctx.translate(obs.x + obs.w / 2, obs.y + obs.h / 2);
+                    ctx.rotate(obs.rotation);
+                    if (img.complete && img.naturalWidth !== 0) {
+                        ctx.drawImage(img, -obs.w / 2, -obs.h / 2, obs.w, obs.h);
+                    } else {
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.fillRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h);
+                    }
                 } else {
-                    ctx.fillStyle = obs.isFloating ? '#ff00aa' : '#aa00ff';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '10px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(BOSS_SETTINGS[obs.imgIndex].name, obs.x + obs.w/2, obs.y + obs.h/2);
+                    if (img.complete && img.naturalWidth !== 0) {
+                        ctx.drawImage(img, obs.x, obs.y, obs.w, obs.h);
+                    } else {
+                        ctx.fillStyle = obs.isFloating ? '#ff00aa' : '#aa00ff';
+                        ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = '10px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(BOSS_SETTINGS[obs.imgIndex].name, obs.x + obs.w/2, obs.y + obs.h/2);
+                    }
                 }
+                ctx.restore();
             });
 
             ctx.fillStyle = '#ffffff';
