@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME</title>
+    <title>GOMIGAME１</title>
     <style>
         * {
             box-sizing: border-box;
@@ -63,7 +63,7 @@
             { name: 'boss2', w: 75,  h: 75,  speedMult: 1.5,  isFloating: false }, // 1
             { name: 'boss3', w: 60,  h: 90,  speedMult: 0.7,  isFloating: false }, // 2
             { name: 'boss4', w: 120, h: 150, speedMult: 1.25, isFloating: false }, // 3
-            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: true  }, // 4 (※サイズ変更: 60x120)
+            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: true  }, // 4
             { name: 'boss6', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false }  // 5
         ];
 
@@ -237,6 +237,9 @@
             stopBGM();
         }
 
+        // -------------------------------------------------------------
+        // ピクセル単位の当たり判定（修正版）
+        // -------------------------------------------------------------
         function checkPixelCollision(player, obs) {
             const padding = 2;
             const pLeft = player.x + padding;
@@ -249,12 +252,15 @@
             const oTop = obs.y;
             const oBottom = obs.y + obs.h;
 
+            // 矩形が重なっていなければヒットしない
             if (pLeft >= oRight || pRight <= oLeft || pTop >= oBottom || pBottom <= oTop) {
                 return false;
             }
 
             const img = bossImages[obs.imgIndex];
-            if (!img.complete || img.naturalWidth !== 0) {
+
+            // 画像の読み込みが完了していない場合のみ矩形判定にフォールバック
+            if (!img.complete || img.naturalWidth === 0) {
                 return true;
             }
 
@@ -279,6 +285,7 @@
                 const imageData = hitCtx.getImageData(imgOverlapX, imgOverlapY, checkW, checkH);
                 const pixels = imageData.data;
 
+                // アルファ値が 180 以上の「濃い不透明ピクセル」のみ判定
                 for (let i = 3; i < pixels.length; i += 4) {
                     if (pixels[i] > 180) { 
                         return true;
@@ -286,6 +293,7 @@
                 }
                 return false;
             } catch (err) {
+                // CORSエラー等の場合は矩形判定にフォールバック
                 return true;
             }
         }
