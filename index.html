@@ -63,7 +63,8 @@
             { name: 'boss2', w: 75,  h: 75,  speedMult: 1.5,  isFloating: false }, // 1
             { name: 'boss3', w: 60,  h: 90,  speedMult: 0.7,  isFloating: false }, // 2
             { name: 'boss4', w: 120, h: 150, speedMult: 1.25, isFloating: false }, // 3
-            { name: 'boss5', w: 60, h: 120,  speedMult: 0.5,  isFloating: true  }  // 4
+            { name: 'boss5', w: 60,  h: 120, speedMult: 0.5,  isFloating: true  }, // 4 (※サイズ変更: 60x120)
+            { name: 'boss6', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false }  // 5
         ];
 
         // -------------------------------------------------------------
@@ -95,19 +96,13 @@
             { score: 130, bossIndex: 1, count: 1 },
             { score: 130, bossIndex: 0, count: 1, delay: 280 },
 
-            // 150: boss3 (縦長) -> boss4 (大型) -> boss5 (飛行) を 3ループ
-            // ループ 1
+            // 150: boss3 -> boss4 -> boss5
             { score: 150, bossIndex: 2, count: 1, delay: 0 },
             { score: 150, bossIndex: 3, count: 1, delay: 120 },
             { score: 150, bossIndex: 4, count: 1, delay: 240 },
-            // ループ 2
-            { score: 150, bossIndex: 2, count: 1, delay: 380 },
-            { score: 150, bossIndex: 3, count: 1, delay: 500 },
-            { score: 150, bossIndex: 4, count: 1, delay: 620 },
-            // ループ 3
-            { score: 150, bossIndex: 2, count: 1, delay: 760 },
-            { score: 150, bossIndex: 3, count: 1, delay: 880 },
-            { score: 150, bossIndex: 4, count: 1, delay: 1000 }
+
+            // 220: boss6 (真ん中で0.5秒停止後、高速移動)
+            { score: 220, bossIndex: 5, count: 1, specialBehavior: 'stopAndDash' }
         ];
 
         const bossImages = [];
@@ -221,6 +216,7 @@
                         bossIndex: item.bossIndex,
                         delayOffset: (item.count > 1) ? (i * interval) : (item.delay || 0),
                         speedMult: item.speedMult,
+                        specialBehavior: item.specialBehavior,
                         triggered: false
                     });
                 }
@@ -258,7 +254,7 @@
             }
 
             const img = bossImages[obs.imgIndex];
-            if (!img.complete || img.naturalWidth === 0) {
+            if (!img.complete || img.naturalWidth !== 0) {
                 return true;
             }
 
@@ -302,15 +298,15 @@
                     }
                     if (frameCount - item.startFrame >= (item.delayOffset / (baseGameSpeed / 6))) {
                         item.triggered = true;
-                        spawnSpecificObstacle(item.bossIndex, item.speedMult);
+                        spawnSpecificObstacle(item.bossIndex, item.speedMult, item.specialBehavior);
                     }
                 }
             });
         }
 
-        function spawnSpecificObstacle(bossIndex, customSpeedMult) {
+        function spawnSpecificObstacle(bossIndex, customSpeedMult, specialBehavior) {
             const setting = BOSS_SETTINGS[bossIndex];
-            let yPos = setting.isFloating ? 145 : (245 - setting.h);
+            let yPos = setting.isFloating ? 115 : (245 - setting.h);
             const speedMult = customSpeedMult !== undefined ? customSpeedMult : setting.speedMult;
 
             obstacles.push({
@@ -320,7 +316,10 @@
                 h: setting.h,
                 speed: baseGameSpeed * speedMult,
                 imgIndex: bossIndex,
-                isFloating: setting.isFloating
+                isFloating: setting.isFloating,
+                specialBehavior: specialBehavior,
+                state: 'normal',
+                stopTimer: 0
             });
         }
 
@@ -352,7 +351,23 @@
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obs = obstacles[i];
-                obs.x -= obs.speed * dt;
+
+                if (obs.specialBehavior === 'stopAndDash') {
+                    if (obs.state === 'normal' && obs.x <= 350) {
+                        obs.state = 'stopping';
+                        obs.stopTimer = 30;
+                    } else if (obs.state === 'stopping') {
+                        obs.stopTimer -= dt;
+                        if (obs.stopTimer <= 0) {
+                            obs.state = 'dashing';
+                            obs.speed = baseGameSpeed * 2.2;
+                        }
+                    }
+                }
+
+                if (obs.state !== 'stopping') {
+                    obs.x -= obs.speed * dt;
+                }
 
                 if (checkPixelCollision(player, obs)) {
                     triggerGameOver();
@@ -452,7 +467,6 @@
             ctx.textAlign = 'right';
             ctx.fillText('SCORE: ' + Math.floor(score / 10), canvas.width - 20, 35);
 
-            // スタート前画面
             if (!isGameStarted) {
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#4da6ff';
@@ -460,7 +474,6 @@
                 ctx.fillText('神に誓うな己に誓え', canvas.width / 2, 150);
             }
 
-            // ゲームオーバー時
             if (isDead) {
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ff3344';
@@ -472,7 +485,6 @@
                 ctx.fillText('さようなら', canvas.width / 2, 170);
             }
 
-            // ゲームクリア時
             if (isCleared) {
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ffd700';
