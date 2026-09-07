@@ -508,28 +508,32 @@
                     }
                 }
 
-                // 通常移動（ストップ中でなければ）
-                if (obs.state !== 'stopping') {
-                    obs.x -= obs.speed * dt;
-                }
-
-                // 画面外に出て一瞬で戻ってくる（ブーメラン）処理
+                // ブーメラン行動：左に移動した後、プレイヤーの後ろへ瞬間移動して右へ走り去る
                 if (obs.specialBehavior === 'boomerangReturn') {
-                    if (!obs.returned && obs.x + obs.w < -10) {
-                        obs.returned = true;
-                        obs.x = player.x - 20; // プレイヤーの少し後ろから急襲
-                        obs.y = 245 - obs.h;   // 地面ぴったり
-                        obs.speed = baseGameSpeed * 2.5; // 右へ高速バック（画面外へ去る）
+                    if (!obs.returned) {
+                        obs.x -= obs.speed * dt; // 通常の左移動
+                        if (obs.x + obs.w < -10) {
+                            obs.returned = true;
+                            obs.x = player.x - 20; // プレイヤーの少し後ろから急襲
+                            obs.y = 245 - obs.h;   // 地面ぴったり
+                            obs.speed = -baseGameSpeed * 2.5; // 右方向へ高速移動（負の速度）
+                        }
+                    } else {
+                        obs.x -= obs.speed * dt; // 右へ高速移動（速度がマイナスのため加算されて右に進む）
                     }
+                } else if (obs.state !== 'stopping') {
+                    obs.x -= obs.speed * dt; // 通常の障害物の移動
                 }
 
                 if (checkPixelCollision(player, obs)) {
                     triggerGameOver();
                 }
 
-                // ブーメランで画面右端を完全に超えた、または通常の左画面外消去
+                // 画面外消去判定
+                // 1) ブーメランで右へ走り去った（画面右端を超えた）場合
+                // 2) 通常の障害物が左画面外へ消えた場合
                 if (obs.specialBehavior === 'boomerangReturn' && obs.returned) {
-                    if (obs.x > canvas.width + 100) {
+                    if (obs.x > canvas.width + 50) {
                         obstacles.splice(i, 1);
                     }
                 } else if (obs.x + obs.w < -100) {
@@ -663,7 +667,7 @@
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 42px sans-serif';
-                ctx.fillText('あなたのかち', canvas.width / 2, 130);
+                ctx.fillText('ありがとう', canvas.width / 2, 130);
 
                 ctx.fillStyle = '#ffffff';
                 ctx.font = '16px sans-serif';
