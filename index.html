@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME33</title>
+    <title>GOMIGAME</title>
     <style>
         * {
             box-sizing: border-box;
@@ -75,7 +75,7 @@
             { name: 'boss3', w: 60,  h: 90,  speedMult: 0.7,  isFloating: false }, // 2
             { name: 'boss4', w: 120, h: 150, speedMult: 1.25, isFloating: false }, // 3
             { name: 'boss5', w: 95,  h: 155, speedMult: 0.4,  isFloating: false }, // 4
-            { name: 'boss6', w: 120,  h: 120,  speedMult: 1.0,  isFloating: false }, // 5
+            { name: 'boss6', w: 120, h: 120, speedMult: 1.0,  isFloating: false }, // 5
             { name: 'boss7', w: 90,  h: 90,  speedMult: 1.0,  isFloating: false, isRotating: true } // 6 (回転)
         ];
 
@@ -116,7 +116,7 @@
             // 220: boss6 (真ん中で0.5秒停止後、高速移動)
             { score: 220, bossIndex: 5, count: 1, specialBehavior: 'stopAndDash' },
 
-            // 233: boss7 (間隔40で縦2体並びのウェーブ攻撃)
+            // 233: boss7クルクル攻撃
             // 1. 
             { score: 233, bossIndex: 6, count: 1, delay: 0,   position: 'middle' },
 
@@ -126,8 +126,8 @@
 
             // 3. 
             { score: 233, bossIndex: 6, count: 1, delay: 90,  position: 'middle' },
-            { score: 233, bossIndex: 6, count: 1, delay: 105,  position: 'top' },
-            
+            { score: 233, bossIndex: 6, count: 1, delay: 105, position: 'top' },
+
             // 4. 
             { score: 233, bossIndex: 6, count: 1, delay: 150, position: 'middle' },
             { score: 233, bossIndex: 6, count: 1, delay: 160, position: 'middle' },
@@ -363,7 +363,7 @@
             } else if (position === 'middle') {
                 yPos = 155;  // 中段
             } else if (position === 'bottom') {
-                yPos = 245 - setting.h; // 下段 (245 - 90 = 155 -> 地面ぴったり)
+                yPos = 245 - setting.h; // 下段 (地面ぴったり)
             } else {
                 yPos = setting.isFloating ? 115 : (245 - setting.h);
             }
