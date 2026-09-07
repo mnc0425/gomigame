@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME</title>
+    <title>GOMIGAME53</title>
     <style>
         * {
             box-sizing: border-box;
@@ -117,8 +117,10 @@
             { name: 'boss6',  w: 150, h: 150, speedMult: 1.0,  isFloating: false }, // 5
             { name: 'boss7',  w: 90,  h: 90,  speedMult: 1.0,  isFloating: false, isRotating: true }, // 6
             { name: 'boss8',  w: 130, h: 130, speedMult: 1.0,  isFloating: false }, // 7
-            { name: 'boss10', w: 80,  h: 180, speedMult: 1.0,  isFloating: false }, // 8 (サイズ変更: 80x180)
-            { name: 'boss13', w: 100, h: 100, speedMult: 1.3,  isFloating: true }  // 9
+            { name: 'boss10', w: 80,  h: 180, speedMult: 1.0,  isFloating: false }, // 8
+            { name: 'boss13', w: 100, h: 100, speedMult: 1.3,  isFloating: true }, // 9
+            { name: 'boss12', w: 120, h: 180, speedMult: 1.0,  isFloating: false }, // 10
+            { name: 'aji',    w: 30,  h: 60,  speedMult: 1.0,  isFloating: false }  // 11 (弾用)
         ];
 
         // -------------------------------------------------------------
@@ -177,8 +179,11 @@
             // 330: boss8 めちゃくちゃはやく目の前で1回止まりゆっくりになる
             { score: 330, bossIndex: 7, count: 1, speedMult: 3.5, specialBehavior: 'superDashStopSlow' },
 
-            // 350: boss10 右からチラッと出て停止→一拍置いて右に戻る→左端から右へ移動
-            { score: 350, bossIndex: 8, count: 1, speedMult: 1.0, specialBehavior: 'peekAndBack' }
+            // 350: boss10 右からチラッと出て停止→右に戻る→左端から右へ進む→右端に到達後、左へ高速疾走
+            { score: 350, bossIndex: 8, count: 1, speedMult: 1.0, specialBehavior: 'peekAndBack' },
+
+            // 385: boss12 右から顔を出し、aji(30*60)を20発連射したのち左へ高速疾走
+            { score: 385, bossIndex: 10, count: 1, specialBehavior: 'shootAjiAndDash' }
         ];
 
         const bossImages = [];
@@ -262,12 +267,14 @@
                 resetGame(0);
             }
 
-            // デバッグ用ショートカットキー（1〜5で任意のスコアから開始）
+            // デバッグ用ショートカットキー
             if (e.key === '1') resetGame(0);
             if (e.key === '2') resetGame(100);
             if (e.key === '3') resetGame(220);
             if (e.key === '4') resetGame(270);
             if (e.key === '5') resetGame(330);
+            if (e.key === '6') resetGame(350);
+            if (e.key === '7') resetGame(385);
         });
 
         window.addEventListener('touchstart', (e) => {
@@ -439,7 +446,30 @@
                 state: 'normal',
                 stopTimer: 0,
                 timeParam: 0,
+                shotCount: 0,
+                shotTimer: 0,
                 returned: false
+            });
+        }
+
+        // boss12 の弾 (aji) を生成する関数
+        function spawnAjiBullet(startX, startY) {
+            const setting = BOSS_SETTINGS[11]; // aji
+            obstacles.push({
+                x: startX,
+                y: startY,
+                baseY: startY,
+                w: setting.w,
+                h: setting.h,
+                speed: baseGameSpeed * 1.5, // 弾速
+                imgIndex: 11,
+                isFloating: false,
+                isRotating: false,
+                rotation: 0,
+                specialBehavior: null,
+                state: 'normal',
+                stopTimer: 0,
+                timeParam: 0
             });
         }
 
@@ -510,15 +540,14 @@
                     }
                 }
 
-                // boss10 新挙動：右からチラッと出て停止→一拍置いて右に戻る→左端から右に進む
+                // boss10 行動パターン
                 if (obs.specialBehavior === 'peekAndBack') {
                     if (obs.state === 'normal') {
-                        // 右から画面内へ進む
                         obs.x -= obs.speed * dt;
-                        if (obs.x <= 650) { // 右端に少し頭を覗かせる位置
+                        if (obs.x <= 650) {
                             obs.x = 650;
                             obs.state = 'pausing';
-                            obs.stopTimer = 25; // 一拍停止（約0.4秒）
+                            obs.stopTimer = 25; // 一拍停止
                         }
                     } else if (obs.state === 'pausing') {
                         obs.stopTimer -= dt;
@@ -526,15 +555,53 @@
                             obs.state = 'retreating';
                         }
                     } else if (obs.state === 'retreating') {
-                        // 右へ退却（戻る）
                         obs.x += obs.speed * dt;
-                        if (obs.x >= canvas.width + 50) { // 完全に出て行ったら
+                        if (obs.x >= canvas.width + 50) {
                             obs.state = 'reappearing';
-                            obs.x = -obs.w - 20; // 画面左外に配置
-                            obs.speed = -baseGameSpeed; // 右へ移動（マイナス速度でx座標にマイナスする＝右に進む）
+                            obs.x = -obs.w - 20; // 画面左外から
+                            obs.speed = -baseGameSpeed; // 右方向へ通常移動
                         }
                     } else if (obs.state === 'reappearing') {
-                        // 画面左から右へ進む
+                        obs.x -= obs.speed * dt;
+                        if (obs.x >= canvas.width) { // 右端に到達
+                            obs.state = 'fastReturnLeft';
+                            obs.speed = baseGameSpeed * 2.2; // 左方向へ高速移動
+                        }
+                    } else if (obs.state === 'fastReturnLeft') {
+                        obs.x -= obs.speed * dt; // 左方向へ高速に進む
+                    }
+                } 
+                // boss12 新行動パターン：右から少し出て停止→一拍置いて aji を20発発射→高速移動
+                else if (obs.specialBehavior === 'shootAjiAndDash') {
+                    if (obs.state === 'normal') {
+                        obs.x -= obs.speed * dt;
+                        if (obs.x <= 650) { // 右端から顔を出す位置
+                            obs.x = 650;
+                            obs.state = 'pausing';
+                            obs.stopTimer = 25; // 一拍停止（約0.4秒）
+                        }
+                    } else if (obs.state === 'pausing') {
+                        obs.stopTimer -= dt;
+                        if (obs.stopTimer <= 0) {
+                            obs.state = 'shooting';
+                            obs.shotCount = 0;
+                            obs.shotTimer = 0;
+                        }
+                    } else if (obs.state === 'shooting') {
+                        obs.shotTimer += dt;
+                        // 22フレーム（約0.36秒）ごとに弾を発射
+                        if (obs.shotTimer >= 22 && obs.shotCount < 20) {
+                            obs.shotTimer = 0;
+                            obs.shotCount++;
+                            // 地面高さに合わせて弾(30*60)を撃ち出す
+                            spawnAjiBullet(obs.x - 20, 245 - 60);
+                        }
+                        // 20発撃ち終わったら少し置いて突撃態勢へ
+                        if (obs.shotCount >= 20 && obs.shotTimer >= 30) {
+                            obs.state = 'dashing';
+                            obs.speed = baseGameSpeed * 2.5; // 高速で左へ進む
+                        }
+                    } else if (obs.state === 'dashing') {
                         obs.x -= obs.speed * dt;
                     }
                 } else if (obs.state !== 'stopping') {
@@ -547,8 +614,7 @@
 
                 // 画面外消去判定
                 if (obs.specialBehavior === 'peekAndBack') {
-                    // 左から出た後、画面右外へ走り去った場合に削除
-                    if (obs.state === 'reappearing' && obs.x > canvas.width + 50) {
+                    if (obs.state === 'fastReturnLeft' && obs.x + obs.w < -100) {
                         obstacles.splice(i, 1);
                     }
                 } else if (obs.x + obs.w < -100) {
