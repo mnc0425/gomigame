@@ -44,7 +44,7 @@
         const hitCanvas = document.createElement('canvas');
         const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
 
-        bgmAudio.volume = 0.20;
+        bgmAudio.volume = 0.25;
 
         // -------------------------------------------------------------
         // Web Audio API による高速・超低遅延 SE 再生システム
@@ -87,7 +87,7 @@
             const gainNode = audioCtx.createGain();
 
             source.buffer = buffer;
-            gainNode.gain.value = 0.75; // 音量
+            gainNode.gain.value = 0.5; // 音量
 
             source.connect(gainNode);
             gainNode.connect(audioCtx.destination);
@@ -116,7 +116,7 @@
             { name: 'boss5',  w: 95,  h: 155, speedMult: 0.4,  isFloating: false }, // 4
             { name: 'boss6',  w: 150, h: 150, speedMult: 1.0,  isFloating: false }, // 5
             { name: 'boss7',  w: 90,  h: 90,  speedMult: 1.0,  isFloating: false, isRotating: true }, // 6
-            { name: 'boss8',  w: 130,  h: 130,  speedMult: 1.0,  isFloating: false }, // 7
+            { name: 'boss8',  w: 130, h: 130, speedMult: 1.0,  isFloating: false }, // 7
             { name: 'boss10', w: 40,  h: 100, speedMult: 1.0,  isFloating: false }, // 8
             { name: 'boss13', w: 100, h: 100, speedMult: 1.3,  isFloating: true }  // 9
         ];
@@ -170,7 +170,7 @@
             { score: 233, bossIndex: 6, count: 1, delay: 200, position: 'bottom' },
             { score: 233, bossIndex: 6, count: 1, delay: 220, position: 'top' },
 
-            // 270: boss13 上下にギザギザ動きながら少し早め。間隔40で3体連続
+            // 270: boss13 上下にギザギザ動きながら少し早め。間隔55で3体連続
             { score: 270, bossIndex: 9, count: 3, delay: 55, speedMult: 1.3, specialBehavior: 'sineWave' },
 
             // 330: boss8 めちゃくちゃはやく目の前で1回止まりゆっくりになる
@@ -281,17 +281,16 @@
             }
         });
 
-        // startDisplayScore: 開始時のスコアを指定可能にする
         function resetGame(startDisplayScore = 0) {
             player.y = 205; 
             player.vy = 0; 
             player.grounded = true;
             player.jumpCount = 0;
             obstacles = [];
-            score = startDisplayScore * 10; // ディスプレイスコアから内部スコアへ換算
+            score = startDisplayScore * 10;
             baseGameSpeed = 6;
             frameCount = 0;
-            isGameStarted = true; // デバッグ切り替え時はそのままゲーム開始状態にする
+            isGameStarted = true;
             isDead = false;
             isCleared = false;
             canRetry = true;
@@ -302,7 +301,6 @@
                 const totalCount = item.count || 1;
                 const interval = item.delay || 220;
                 for (let i = 0; i < totalCount; i++) {
-                    // 開始スコアより前のボスはすでにスキップ（処理済）扱いにする
                     const isAlreadyPassed = item.score < startDisplayScore;
                     spawnQueue.push({
                         triggerScore: item.score,
@@ -664,7 +662,7 @@
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 42px sans-serif';
-                ctx.fillText('ふーん　やるじゃん', canvas.width / 2, 130);
+                ctx.fillText('あなたのかち', canvas.width / 2, 130);
 
                 ctx.fillStyle = '#ffffff';
                 ctx.font = '16px sans-serif';
