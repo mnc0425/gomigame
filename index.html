@@ -537,7 +537,8 @@
                 }
             }
 
-            const allTriggered = spawnQueue.every(item => item.triggered);
+            // 全ての出現予定が消化され、かつ画面上に障害物が1つもない場合にクリア判定
+            const allTriggered = spawnQueue.length > 0 && spawnQueue.every(item => item.triggered);
             if (allTriggered && obstacles.length === 0) {
                 triggerGameClear();
             }
