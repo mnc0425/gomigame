@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME</title>
+    <title>GOMIGAME2</title>
     <style>
         * {
             box-sizing: border-box;
@@ -170,8 +170,9 @@
             { score: 233, bossIndex: 6, count: 1, delay: 200, position: 'bottom' },
             { score: 233, bossIndex: 6, count: 1, delay: 220, position: 'top' },
 
-            // 270: boss13 上下にギザギザ動きながら少し早め。間隔55で3体連続
+            // 270: boss13 3体連続 -> 一拍おいて -> 再び3体連続
             { score: 270, bossIndex: 9, count: 3, delay: 55, speedMult: 1.3, specialBehavior: 'sineWave' },
+            { score: 270, bossIndex: 9, count: 3, delay: 55, speedMult: 1.3, specialBehavior: 'sineWave', initialDelay: 200 },
 
             // 330: boss8 めちゃくちゃはやく目の前で1回止まりゆっくりになる
             { score: 330, bossIndex: 7, count: 1, speedMult: 3.5, specialBehavior: 'superDashStopSlow' },
@@ -268,7 +269,7 @@
             if (e.key === '4') resetGame(270);
             if (e.key === '5') resetGame(330);
         });
-        
+
         window.addEventListener('touchstart', (e) => {
             if (e.touches.length > 1) return;
             handleInput();
@@ -300,12 +301,13 @@
             STAGE_SCHEDULE.forEach(item => {
                 const totalCount = item.count || 1;
                 const interval = item.delay || 220;
+                const initialDelay = item.initialDelay || 0;
                 for (let i = 0; i < totalCount; i++) {
                     const isAlreadyPassed = item.score < startDisplayScore;
                     spawnQueue.push({
                         triggerScore: item.score,
                         bossIndex: item.bossIndex,
-                        delayOffset: (item.count > 1) ? (i * interval) : (item.delay || 0),
+                        delayOffset: initialDelay + ((item.count > 1) ? (i * interval) : (item.delay || 0)),
                         speedMult: item.speedMult,
                         specialBehavior: item.specialBehavior,
                         position: item.position,
@@ -480,9 +482,9 @@
                     obs.y = obs.baseY + Math.sin(obs.timeParam) * 55;
                 }
 
-                // 超高速→プレイヤー手前で一瞬停止→超低速
+                // 超高速→プレイヤー直前で一瞬停止→超低速
                 if (obs.specialBehavior === 'superDashStopSlow') {
-                    if (obs.state === 'normal' && obs.x <= player.x + 180) {
+                    if (obs.state === 'normal' && obs.x <= player.x + 100) {
                         obs.state = 'stopping';
                         obs.stopTimer = 18; // 約0.3秒停止
                     } else if (obs.state === 'stopping') {
@@ -530,8 +532,6 @@
                 }
 
                 // 画面外消去判定
-                // 1) ブーメランで右へ走り去った（画面右端を超えた）場合
-                // 2) 通常の障害物が左画面外へ消えた場合
                 if (obs.specialBehavior === 'boomerangReturn' && obs.returned) {
                     if (obs.x > canvas.width + 50) {
                         obstacles.splice(i, 1);
