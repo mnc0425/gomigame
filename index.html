@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME53</title>
+    <title>GOMIGAME</title>
     <style>
         * {
             box-sizing: border-box;
@@ -179,7 +179,7 @@
             // 330: boss8 めちゃくちゃはやく目の前で1回止まりゆっくりになる
             { score: 330, bossIndex: 7, count: 1, speedMult: 3.5, specialBehavior: 'superDashStopSlow' },
 
-            // 350: boss10 右からチラッと出て停止→右に戻る→左端から右へ進む→右端に到達後、左へ高速疾走
+            // 350: boss10 右からチラッと出て停止→右に戻る→左端から右へ進みx=650に到達後、高速回転しながら左へ高速疾走
             { score: 350, bossIndex: 8, count: 1, speedMult: 1.0, specialBehavior: 'peekAndBack' },
 
             // 385: boss12 右から顔を出し、aji(30*60)を20発連射したのち左へ高速疾走
@@ -563,15 +563,17 @@
                         }
                     } else if (obs.state === 'reappearing') {
                         obs.x -= obs.speed * dt;
-                        if (obs.x >= canvas.width) { // 右端に到達
+                        if (obs.x >= 650) { // x = 650 に到達
                             obs.state = 'fastReturnLeft';
                             obs.speed = baseGameSpeed * 2.2; // 左方向へ高速移動
+                            obs.isRotating = true; // 高速回転を開始
                         }
                     } else if (obs.state === 'fastReturnLeft') {
                         obs.x -= obs.speed * dt; // 左方向へ高速に進む
+                        obs.rotation -= 0.3 * dt; // 高速回転
                     }
                 } 
-                // boss12 新行動パターン：右から少し出て停止→一拍置いて aji を20発発射→高速移動
+                // boss12 行動パターン
                 else if (obs.specialBehavior === 'shootAjiAndDash') {
                     if (obs.state === 'normal') {
                         obs.x -= obs.speed * dt;
@@ -589,17 +591,14 @@
                         }
                     } else if (obs.state === 'shooting') {
                         obs.shotTimer += dt;
-                        // 22フレーム（約0.36秒）ごとに弾を発射
                         if (obs.shotTimer >= 22 && obs.shotCount < 20) {
                             obs.shotTimer = 0;
                             obs.shotCount++;
-                            // 地面高さに合わせて弾(30*60)を撃ち出す
                             spawnAjiBullet(obs.x - 20, 245 - 60);
                         }
-                        // 20発撃ち終わったら少し置いて突撃態勢へ
                         if (obs.shotCount >= 20 && obs.shotTimer >= 30) {
                             obs.state = 'dashing';
-                            obs.speed = baseGameSpeed * 2.5; // 高速で左へ進む
+                            obs.speed = baseGameSpeed * 2.5;
                         }
                     } else if (obs.state === 'dashing') {
                         obs.x -= obs.speed * dt;
