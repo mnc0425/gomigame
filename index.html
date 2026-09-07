@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME</title>
+    <title>GOMIGAME1</title>
     <style>
         * {
             box-sizing: border-box;
@@ -258,9 +258,15 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === ' ' || e.key === 'ArrowUp') handleInput();
             if (e.key === 'r' || e.key === 'R') {
-                if ((isDead || isCleared) && Date.now() - deadTime >= 1000) resetGame();
-                else if (!isDead && !isCleared && isGameStarted) resetGame();
+                resetGame(0);
             }
+
+            // デバッグ用ショートカットキー（1〜5で任意のスコアから開始）
+            if (e.key === '1') resetGame(0);
+            if (e.key === '2') resetGame(100);
+            if (e.key === '3') resetGame(220);
+            if (e.key === '4') resetGame(270);
+            if (e.key === '5') resetGame(330);
         });
         
         window.addEventListener('touchstart', (e) => {
@@ -275,15 +281,17 @@
             }
         });
 
-        function resetGame() {
+        // startDisplayScore: 開始時のスコアを指定可能にする
+        function resetGame(startDisplayScore = 0) {
             player.y = 205; 
             player.vy = 0; 
             player.grounded = true;
             player.jumpCount = 0;
             obstacles = [];
-            score = 0;
+            score = startDisplayScore * 10; // ディスプレイスコアから内部スコアへ換算
             baseGameSpeed = 6;
             frameCount = 0;
+            isGameStarted = true; // デバッグ切り替え時はそのままゲーム開始状態にする
             isDead = false;
             isCleared = false;
             canRetry = true;
@@ -294,6 +302,8 @@
                 const totalCount = item.count || 1;
                 const interval = item.delay || 220;
                 for (let i = 0; i < totalCount; i++) {
+                    // 開始スコアより前のボスはすでにスキップ（処理済）扱いにする
+                    const isAlreadyPassed = item.score < startDisplayScore;
                     spawnQueue.push({
                         triggerScore: item.score,
                         bossIndex: item.bossIndex,
@@ -301,7 +311,7 @@
                         speedMult: item.speedMult,
                         specialBehavior: item.specialBehavior,
                         position: item.position,
-                        triggered: false
+                        triggered: isAlreadyPassed
                     });
                 }
             });
@@ -672,7 +682,8 @@
             requestAnimationFrame(loop);
         }
 
-        resetGame();
+        resetGame(0);
+        isGameStarted = false; // 初期ロード時のみスタート待機画面にする
         requestAnimationFrame(loop);
     </script>
 </body>
