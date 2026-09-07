@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GOMIGAME</title>
+    <title>GOMIGAME53</title>
     <style>
         * {
             box-sizing: border-box;
@@ -35,25 +35,69 @@
 
     <canvas id="gameCanvas" width="800" height="300"></canvas>
     <audio id="bgmAudio" src="bgm.mp3" loop></audio>
-    <audio id="jumpAudio1" src="jump.wav" preload="auto"></audio>
-    <audio id="jumpAudio2" src="jump2.wav" preload="auto"></audio>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const bgmAudio = document.getElementById('bgmAudio');
-        const jumpAudio1 = document.getElementById('jumpAudio1');
-        const jumpAudio2 = document.getElementById('jumpAudio2');
 
         const hitCanvas = document.createElement('canvas');
         const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
 
         bgmAudio.volume = 0.25;
-        jumpAudio1.volume = 0.5;
-        jumpAudio2.volume = 0.5;
+
+        // -------------------------------------------------------------
+        // Web Audio API による高速・超低遅延 SE 再生システム
+        // -------------------------------------------------------------
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let jumpBuffer1 = null;
+        let jumpBuffer2 = null;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        async function loadSE(url) {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                initAudioContext();
+                return await audioCtx.decodeAudioData(arrayBuffer);
+            } catch (e) {
+                console.error("SE load error:", e);
+                return null;
+            }
+        }
+
+        // SEの事前ロード
+        loadSE('jump.wav').then(buf => jumpBuffer1 = buf);
+        loadSE('jump2.wav').then(buf => jumpBuffer2 = buf);
+
+        function playJumpSE(buffer) {
+            if (!buffer) return;
+            initAudioContext();
+
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+
+            source.buffer = buffer;
+            gainNode.gain.value = 0.5; // 音量
+
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            source.start(0); // 即時再生
+        }
 
         let bgmStarted = false;
         function playBGM() {
+            initAudioContext();
             if (bgmStarted) return;
             bgmAudio.play().then(() => { bgmStarted = true; }).catch(() => {});
         }
@@ -62,11 +106,6 @@
             bgmAudio.pause();
             bgmAudio.currentTime = 0;
             bgmStarted = false;
-        }
-
-        function playJumpSE(audioElement) {
-            audioElement.currentTime = 0;
-            audioElement.play().catch(() => {});
         }
 
         const BOSS_SETTINGS = [
@@ -117,23 +156,14 @@
             { score: 220, bossIndex: 5, count: 1, specialBehavior: 'stopAndDash' },
 
             // 233: boss7クルクル攻撃
-            // 1. 
             { score: 233, bossIndex: 6, count: 1, delay: 0,   position: 'middle' },
-
-            // 2. 
             { score: 233, bossIndex: 6, count: 1, delay: 50,  position: 'middle' },
             { score: 233, bossIndex: 6, count: 1, delay: 70,  position: 'top' },
-
-            // 3. 
             { score: 233, bossIndex: 6, count: 1, delay: 90,  position: 'middle' },
             { score: 233, bossIndex: 6, count: 1, delay: 105, position: 'top' },
-
-            // 4. 
             { score: 233, bossIndex: 6, count: 1, delay: 150, position: 'middle' },
             { score: 233, bossIndex: 6, count: 1, delay: 160, position: 'middle' },
             { score: 233, bossIndex: 6, count: 1, delay: 170, position: 'middle' },
-
-            // 5. 
             { score: 233, bossIndex: 6, count: 1, delay: 200, position: 'bottom' },
             { score: 233, bossIndex: 6, count: 1, delay: 220, position: 'top' }
         ];
@@ -184,9 +214,9 @@
 
             if (player.jumpCount < player.maxJumps) {
                 if (player.jumpCount === 0) {
-                    playJumpSE(jumpAudio1);
+                    playJumpSE(jumpBuffer1);
                 } else if (player.jumpCount === 1) {
-                    playJumpSE(jumpAudio2);
+                    playJumpSE(jumpBuffer2);
                 }
 
                 player.vy = jumpPower;
@@ -196,6 +226,8 @@
         }
 
         function handleInput() {
+            initAudioContext();
+
             if (!isGameStarted) {
                 isGameStarted = true;
                 playBGM();
