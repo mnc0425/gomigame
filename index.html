@@ -44,7 +44,7 @@
         const hitCanvas = document.createElement('canvas');
         const hitCtx = hitCanvas.getContext('2d', { willReadFrequently: true });
 
-        bgmAudio.volume = 0.25;
+        bgmAudio.volume = 0.20;
 
         // -------------------------------------------------------------
         // Web Audio API による高速・超低遅延 SE 再生システム
@@ -87,7 +87,7 @@
             const gainNode = audioCtx.createGain();
 
             source.buffer = buffer;
-            gainNode.gain.value = 0.5; // 音量
+            gainNode.gain.value = 0.75; // 音量
 
             source.connect(gainNode);
             gainNode.connect(audioCtx.destination);
